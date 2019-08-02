@@ -8,7 +8,8 @@ from torchvision.models import vgg16_bn
 # this is a copy of:
 #   https://github.com/fastai/course-v3/blob/master/nbs/dl1/lesson7-superres-imagenet.ipynb
 
-torch.cuda.set_device(0)
+#torch.cuda.set_device(0)
+defaults.device = torch.device("cpu")
 
 path = Path('data')
 path_input = Path('data/input')
@@ -19,9 +20,9 @@ path_tissue = Path('data/tissue')
 # Resize tissue and input
 #
 
-path_input_128  = Path('data/input_128')
-path_bone_128   = Path('data/bone_128')
-path_tissue_128 = Path('data/tissue_128')
+path_input_512  = Path('data/input_512')
+path_bone_512   = Path('data/bone_512')
+path_tissue_512 = Path('data/tissue_512')
 
 il = ImageList.from_folder(path_input)
 tl = ImageList.from_folder(path_tissue)
@@ -43,9 +44,9 @@ def resize_one_input(fn, i, path, size):
     img.save(dest, quality=60)
 
 # create smaller versions of the images
-bs = 8,128
-sets_input  = [(path_input_128,128)]
-sets_tissue = [(path_tissue_128,128)]
+bs = 16,512
+sets_input  = [(path_input_512,512)]
+sets_tissue = [(path_tissue_512,512)]
 for p,size in sets_input:
     if not p.exists():
         print(f"resizing to {size} into {p}")
@@ -59,6 +60,8 @@ for p,size in sets_tissue:
 #
 # Resize DONE
 #
+
+bs,size=16,512
 
 free = gpu_mem_get_free_no_cache()
 # the max size of the test image depends on the available GPU RAM 
@@ -75,7 +78,7 @@ sample = False
 tfms = get_transforms()
 
 # we want to predict the tissue from the input
-src = ImageImageList.from_folder(path_input_128)
+src = ImageImageList.from_folder(path_input_512)
 
 if sample: 
     src = src.filter_by_rand(sample, seed=42)
@@ -84,7 +87,7 @@ src = src.split_by_rand_pct(0.1, seed=42)
 
 # ok, we need to use the path_tissue_128 as the target for the input of path_input_128
 def get_data(bs,size):
-    data = (src.label_from_func(lambda x: path_tissue_128/x.relative_to(path_input_128))
+    data = (src.label_from_func(lambda x: path_tissue_512/x.relative_to(path_input_512))
            .transform(get_transforms(max_zoom=2.), size=size, tfm_y=True)
            .databunch(bs=bs).normalize(imagenet_stats, do_y=True))
 
@@ -150,14 +153,16 @@ learn.unfreeze()
 # we would need to learn this first?
 # learn.load((path_pets/'small-96'/'models'/'2b').absolute());
 
-learn.fit_one_cycle(40, slice(1e-6,1e-4))
+learn.fit_one_cycle(1, slice(1e-6,1e-4))
+learn.fit_one_cycle(1, slice(1e-6,1e-4))
+learn.fit_one_cycle(100, slice(1e-6,1e-4))
 learn.recorder.plot_lr()
 # learn.recorder.plot()
 
 learn.save('deboning')
 
 # show output
-learn.show_results(rows=3, imgsize=5)
+learn.show_results(rows=30, imgsize=5)
 
 
 learn.recorder.plot_losses()
@@ -167,9 +172,13 @@ learn.recorder.plot_losses()
 #
 _=learn.load('deboning')
 
-data_mr = (ImageImageList.from_folder(path_input).split_by_rand_pct(0.1, seed=42)
-          .label_from_func(lambda x: path_tissue_128/x.relative_to(path_input))
-          .transform(get_transforms(), size=(820,1024), tfm_y=True)
+path_input_256  = Path('data/input_256')
+path_bone_256   = Path('data/bone_256')
+path_tissue_256 = Path('data/tissue_256')
+
+data_mr = (ImageImageList.from_folder(path_input_256).split_by_rand_pct(0.1, seed=42)
+          .label_from_func(lambda x: path_tissue_128/x.relative_to(path_input_256))
+          .transform(get_transforms(), size=(256,256), tfm_y=True)
           .databunch(bs=2).normalize(imagenet_stats, do_y=True))
 
 learn.data = data_mr
@@ -183,4 +192,5 @@ img = open_image(fn); img.shape
 _,img_hr,b = learn.predict(img)
 
 show_image(img, figsize=(18,15), interpolation='nearest');
+show_image(img_hr, figsize=(18,15), interpolation='nearest');
 
