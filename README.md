@@ -1,5 +1,15 @@
 ## Remove Bones from X-Ray images
 
+
+
+This project attempts to remove bone structures from plane film XRay images to make the soft tissue structure easier to appreciate. 
+
+<p align="center">
+   <img width="300" src="img/logo.png">
+</p>
+
+### Setup
+
 A general pytorch environment:
 ```
 conda create --name fastai
