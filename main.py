@@ -5,11 +5,16 @@ from fastai.utils.mem import *
 from torchvision.models import vgg16_bn
 
 
-# this is a copy of:
+# This is largely a copy of source code found on:
 #   https://github.com/fastai/course-v3/blob/master/nbs/dl1/lesson7-superres-imagenet.ipynb
 
-#torch.cuda.set_device(0)
-defaults.device = torch.device("cpu")
+defaults.cmap = 'binary'
+CPU=1
+if CPU == 1:
+    defaults.device = torch.device("cpu")
+else:
+    # default is GPU
+    torch.cuda.set_device(0)
 
 path = Path('data')
 path_input = Path('data/input')
@@ -18,6 +23,7 @@ path_tissue = Path('data/tissue')
 
 #
 # Resize tissue and input
+# (checks for the directory and only creates the output if the directory does not exist)
 #
 
 path_input_512  = Path('data/input_512')
@@ -44,7 +50,7 @@ def resize_one_input(fn, i, path, size):
     img.save(dest, quality=60)
 
 # create smaller versions of the images
-bs = 16,512
+bs = 8,512
 sets_input  = [(path_input_512,512)]
 sets_tissue = [(path_tissue_512,512)]
 for p,size in sets_input:
@@ -63,13 +69,14 @@ for p,size in sets_tissue:
 
 bs,size=16,512
 
-free = gpu_mem_get_free_no_cache()
-# the max size of the test image depends on the available GPU RAM 
-if free > 8200: 
-    bs,size=16,128
-else:           
-    bs,size=8,128
-print(f"using bs={bs}, size={size}, have {free}MB of GPU RAM free")
+if not(CPU == 1):
+    free = gpu_mem_get_free_no_cache()
+    # the max size of the test image depends on the available GPU RAM 
+    if free > 8200: 
+        bs,size=16,128
+    else:           
+        bs,size=8,128
+    print(f"using bs={bs}, size={size}, have {free}MB of GPU RAM free")
 
 arch = models.resnet34
 # sample = 0.1
@@ -89,7 +96,7 @@ src = src.split_by_rand_pct(0.1, seed=42)
 def get_data(bs,size):
     data = (src.label_from_func(lambda x: path_tissue_512/x.relative_to(path_input_512))
            .transform(get_transforms(max_zoom=2.), size=size, tfm_y=True)
-           .databunch(bs=bs).normalize(imagenet_stats, do_y=True))
+           .databunch(bs=bs).normalize(do_y=True))
 
     data.c = 3
     return data
@@ -105,7 +112,10 @@ def gram_matrix(x):
     x = x.view(n, c, -1)
     return (x @ x.transpose(1,2))/(c*h*w)
 
-vgg_m = vgg16_bn(True).features.cuda().eval()
+if CPU == 1:
+    vgg_m = vgg16_bn(True).features.eval()
+else:
+    vgg_m = vgg16_bn(True).features.cuda().eval()
 requires_grad(vgg_m, False)
 blocks = [i-1 for i,o in enumerate(children(vgg_m)) if isinstance(o,nn.MaxPool2d)]
 
@@ -153,33 +163,32 @@ learn.unfreeze()
 # we would need to learn this first?
 # learn.load((path_pets/'small-96'/'models'/'2b').absolute());
 
-learn.fit_one_cycle(1, slice(1e-6,1e-4))
-learn.fit_one_cycle(1, slice(1e-6,1e-4))
-learn.fit_one_cycle(100, slice(1e-6,1e-4))
+learn.fit_one_cycle(30, slice(1e-6,1e-4))
 learn.recorder.plot_lr()
 # learn.recorder.plot()
 
-learn.save('deboning')
+learn.save('../../../models/deboning_512_30steps')
 
 # show output
-learn.show_results(rows=30, imgsize=5)
+learn.show_results(rows=5, imgsize=5)
 
 
 learn.recorder.plot_losses()
 
 #
 # Testing the network
-#
-_=learn.load('deboning')
+# (use higher resolution data and see if that works still)
+_=learn.load('deboning_512')
 
-path_input_256  = Path('data/input_256')
-path_bone_256   = Path('data/bone_256')
-path_tissue_256 = Path('data/tissue_256')
+path_input  = Path('data/input')
+path_bone   = Path('data/bone')
+path_tissue = Path('data/tissue')
 
-data_mr = (ImageImageList.from_folder(path_input_256).split_by_rand_pct(0.1, seed=42)
-          .label_from_func(lambda x: path_tissue_128/x.relative_to(path_input_256))
-          .transform(get_transforms(), size=(256,256), tfm_y=True)
-          .databunch(bs=2).normalize(imagenet_stats, do_y=True))
+# This one is not needed, we can use predict immediately.
+data_mr = (ImageImageList.from_folder(path_input).split_by_rand_pct(0.1, seed=42)
+          .label_from_func(lambda x: path_tissue/x.relative_to(path_input))
+          .transform(get_transforms(), size=(1024,1024), tfm_y=True)
+          .databunch(bs=2).normalize(do_y=True))#
 
 learn.data = data_mr
 
@@ -193,4 +202,3 @@ _,img_hr,b = learn.predict(img)
 
 show_image(img, figsize=(18,15), interpolation='nearest');
 show_image(img_hr, figsize=(18,15), interpolation='nearest');
-
