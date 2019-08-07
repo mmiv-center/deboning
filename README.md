@@ -18,6 +18,7 @@ conda activate fastai
 conda install -c pytorch -c fastai fastai
 pip3 install torchvision
 conda install -c pytorch -c fastai fastai
+conda install -c conda-forge pydicom
 ```
 
 Check utilization of GPU
