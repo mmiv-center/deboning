@@ -4,9 +4,9 @@
 This project attempts to remove bone structures from plane film XRay images to make the soft tissue structure easier to appreciate. 
 
 <p align="center">
-   <img width="300" src="https://github.com/mmiv-center/deboning/blob/master/img/orig.png?raw=true">
+   <img width="250" src="https://github.com/mmiv-center/deboning/blob/master/img/orig.png?raw=true">
    <img width="300" src="https://github.com/mmiv-center/deboning/blob/master/img/logo.png?raw=true">
-   <img width="300" src="https://github.com/mmiv-center/deboning/blob/master/img/db.png?raw=true">
+   <img width="250" src="https://github.com/mmiv-center/deboning/blob/master/img/db.png?raw=true">
 </p>
 
 ### Setup
