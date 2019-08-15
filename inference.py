@@ -3,7 +3,7 @@ from fastai.vision import *
 from fastai.callbacks import *
 from fastai.utils.mem import *
 from torchvision.models import vgg16_bn
-
+from tempfile import NamedTemporaryFile
 
 # This is largely a copy of source code found on:
 #   https://github.com/fastai/course-v3/blob/master/nbs/dl1/lesson7-superres-imagenet.ipynb
@@ -11,7 +11,7 @@ from torchvision.models import vgg16_bn
 
 class deboning_512:
     def __init__(self, model_name):
-        self.model_name = '../../../models/deboning_512_120steps'
+        self.model_name = '../../../models/deboning_512_200steps'
         if model_name != None:
             self.model_name = model_name
 
@@ -137,20 +137,20 @@ class deboning_512:
         fn = path_input/'img_2050.png'
         if image_path != None:
             fn = image_path
-        img = PIL.Image.open(fn); img = img.convert('L').resize([512,512]);
-        fn = '/tmp/input.png'
+        img = PIL.Image.open(fn); img = img.convert('L').resize([512,512])
+        # dirty... 
+        fn = NamedTemporaryFile(suffix='.png')
         img.save(fn)
-        img = open_image(fn); img.shape
-
+        img = open_image(fn)
         _,img_hr,b = self.learn.predict(img)
 
-        show_image(img, figsize=(18,15), interpolation='nearest');
-        show_image(img_hr, figsize=(18,15), interpolation='nearest');
+        #show_image(img, figsize=(18,15), interpolation='nearest');
+        #show_image(img_hr, figsize=(18,15), interpolation='nearest');
         return img, img_hr
 
 
 if __name__ == "__main__":
     # In case we run this as a program we can do this for testing.
     # In case we import this program this will not be running. 
-    pre = deboning_512('../../../models/deboning_512_120steps')
+    pre = deboning_512('../../../models/deboning_512_200steps')
     img, img_hr = pre.debone('data/input/img_2050.png')

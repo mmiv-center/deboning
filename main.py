@@ -67,7 +67,7 @@ for p,size in sets_tissue:
 # Resize DONE
 #
 
-bs,size=16,512
+bs,size=24,512
 
 if not(CPU == 1):
     free = gpu_mem_get_free_no_cache()
@@ -82,7 +82,9 @@ arch = models.resnet34
 # sample = 0.1
 sample = False
 
-tfms = get_transforms()
+#tfms = get_transforms()
+tfms = get_transforms(max_rotate=5, max_zoom=1.3, max_lighting=0.4, max_warp=0.1,
+                      p_affine=1., p_lighting=1.)
 
 # we want to predict the tissue from the input
 src = ImageImageList.from_folder(path_input_512)
@@ -163,11 +165,11 @@ learn.unfreeze()
 # we would need to learn this first?
 # learn.load((path_pets/'small-96'/'models'/'2b').absolute());
 
-learn.fit_one_cycle(30, slice(1e-6,1e-4))
+learn.fit_one_cycle(60, slice(1e-6,1e-4))
 learn.recorder.plot_lr()
 # learn.recorder.plot()
 
-learn.save('../../../models/deboning_512_30steps')
+learn.save('../../../models/deboning_512_120steps')
 
 # show output
 learn.show_results(rows=5, imgsize=5)
@@ -178,22 +180,23 @@ learn.recorder.plot_losses()
 #
 # Testing the network
 # (use higher resolution data and see if that works still)
-_=learn.load('deboning_512')
+defaults.device = 'cpu'
+_=learn.load('../../../models/deboning_512_120steps')
 
-path_input  = Path('data/input')
-path_bone   = Path('data/bone')
-path_tissue = Path('data/tissue')
+path_input_512  = Path('data/input_512')
+path_bone_512   = Path('data/bone_512')
+path_tissue_512 = Path('data/tissue_512')
 
 # This one is not needed, we can use predict immediately.
-data_mr = (ImageImageList.from_folder(path_input).split_by_rand_pct(0.1, seed=42)
-          .label_from_func(lambda x: path_tissue/x.relative_to(path_input))
-          .transform(get_transforms(), size=(1024,1024), tfm_y=True)
+data_mr = (ImageImageList.from_folder(path_input_512).split_by_rand_pct(0.1, seed=42)
+          .label_from_func(lambda x: path_tissue_512/x.relative_to(path_input_512))
+          .transform(get_transforms(), size=(512,512), tfm_y=True)
           .databunch(bs=2).normalize(do_y=True))#
 
 learn.data = data_mr
 
 fn = path_input/'img_0050.png'
-img = PIL.Image.open(fn); img = img.convert('L');
+img = PIL.Image.open(fn); img = img.convert('L').resize([512,512]);
 fn = '/tmp/input.png'
 img.save(fn)
 img = open_image(fn); img.shape
